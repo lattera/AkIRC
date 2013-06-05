@@ -4,7 +4,7 @@ AkIRC
 Contact
 -------
     Primarily written by Jason E Rush ( jason@jason-rush.com )
-    [https://github.com/aksnowman/AkIRC](https://github.com/aksnowman/AkIRC)
+    (github.com/aksnowman/AkIRC)[https://github.com/aksnowman/AkIRC]
 
 Goal
 ----
