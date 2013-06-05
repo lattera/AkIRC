@@ -1,0 +1,203 @@
+<?php
+
+$deps['userAuth'][] = 'MySQLi';
+
+function userAuth_construct( &$bot, &$vars ){
+    global $cfg, $mysqli, $userAuth;
+    $userAuth = array();
+    $createUserTable = array(
+"SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';",
+
+"CREATE TABLE IF NOT EXISTS `users` (
+  `users_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `password` varchar(40) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `status` int(11) NOT NULL,
+  `hostmask` tinytext NOT NULL,
+  `lastauth` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`users_id`),
+  UNIQUE KEY `users_id` (`users_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=latin1;",
+
+"INSERT IGNORE INTO `users` (`users_id`, `username`, `password`, `email`, `status`, `hostmask`, `lastauth`) VALUES (1, 'admin', '71dcb930238543f8c16a507432cacbbc3fd70f43', '', 0, '', '2013-04-27 14:53:21');",
+);
+
+    $createUserMetaTable = array(
+"SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';",
+
+"CREATE TABLE IF NOT EXISTS `user_meta` (
+  `user_meta_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `users_id` bigint(20) unsigned NOT NULL,
+  `meta_key` tinytext NOT NULL,
+  `meta_val` longtext NOT NULL,
+  PRIMARY KEY (`user_meta_id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=latin1;",
+
+"INSERT IGNORE INTO `user_meta` (`user_meta_id`, `users_id`, `meta_key`, `meta_val`) VALUES (1, 1, 'capability', 'userAuth-admin');",
+);
+    foreach( $createUserTable as $line ){
+        if( ! $mysqli->query( $line ) ){
+            echo "[MySQLi] Query failed: CreateUserTable: (".$mysqli->errno.")".$mysqli->error."\n";
+            return false;
+        }
+    }
+    foreach( $createUserMetaTable as $line ){
+        if( ! $mysqli->query( $line ) ){
+            echo "[MySQLi] Query failed: CreateUserMetaTable: (".$mysqli->errno.")".$mysqli->error."\n";
+            return false;
+        }
+    }
+    $bot->addHandler( 'privmsg', 'userAuth_update' );
+    $bot->addHandler( 'privmsg.', 'userAuth_pm' );
+    return true;
+}
+/*
+meta examples:
+    capability  =>  'voting-admin'
+    capability  =>  'voting-kickban'
+    capability  =>  'userAuth-admin'
+    urlEcho-APIKey   =>  'asdfasdf12341234'
+    etc...
+*/
+function userAuth_pm( &$bot, $parse ){
+    global $cfg, $userAuth, $mysqli;
+    switch( $parse['cmd'] ){
+        case 'identify':
+            if( userAuth_identify( $parse['hostmask'], $parse['cmdargs'][0] ) )
+                $bot->sendMsg( $parse['nick'], "Password accepted - you are now recognized." );
+            else
+                $bot->sendMsg( $parse['nick'], "Password incorrect." );
+            break;
+        case 'register':
+            break;
+        case 'adduser':
+            if( userAuth_isAuthedUser( $parse['hostmask'] ) && userAuth_hasCap( $parse['nick'], "userAuth-admin" ) && 2 == count( $parse['cmdargs'] ) ){
+                $res = $mysqli->query( "SELECT * FROM `users` WHERE `username`='".$mysqli->real_escape_string( strtolower( $parse['cmdargs'][0] ) )."'" );
+                if( 1 <= $res->num_rows ){
+                    $bot->sendMsg( $parse['nick'], "Username already exists." );
+                    break;
+                }
+                if( ! $mysqli->query( "INSERT INTO `users` (`username`,`password`) VALUES ('".$mysqli->real_escape_string( strtolower( $parse['cmdargs'][0] ) )."', '".userAuth_hashPass( $parse['cmdargs'][1] )."' )" ) ){
+                    $bot->sendMsg( $parse['nick'], "SQL Error: (".$mysqli->errno.")".$mysqli->error );
+                    break;
+                }
+                $bot->sendMsg( $parse['nick'], "User created." );
+            }else
+                $bot->sendMsg( $parse['nick'], "Usage: adduser <nick> <pass>" );
+            break;
+        case 'passwd':
+            if( isset( $userAuth[ $parse['hostmask'] ] ) ){
+                if( 2 == count( $parse['cmdargs'] ) ){
+                    $res = $mysqli->query( "SELECT * FROM `users` WHERE `username`='".$mysqli->real_escape_string( strtolower( $parse['nick'] ) )."' AND password='".userAuth_hashPass( $parse['cmdargs'][0] )."'" );
+                    if( 1 == $res->num_rows ){
+                        $mysqli->query( "UPDATE `users` SET password='".userAuth_hashPass( $parse['cmdargs'][1] )."' WHERE `username`='".$mysqli->real_escape_string( $parse['nick'] )."'" );
+                        $bot->sendMsg( $parse['nick'], "Password successfully updated." );
+                    }else
+                        $bot->sendMsg( $parse['nick'], "Old password incorrect." );
+                }else
+                    $bot->sendMsg( $parse['nick'], "Usage: passwd <oldPass> <newPass> (No white-space characters allowed...)" );
+            }else
+                $bot->sendMsg( $parse['nick'], "You are not currently logged in." );
+            break;
+        case 'auths':
+            $bot->sendMsg( $parse['nick'], "Identity: ".str_replace( "\n", "", str_replace( "\r", "", var_export( $userAuth, true ) ) ) );
+            break;
+        case 'authed':
+            $hostmask = $parse['hostmask'];
+            if( 0 < count( $parse['cmdargs'] ) )
+                $hostmask = $parse['cmdargs'][0];
+            if( userAuth_isAuthedUser( $hostmask ) )
+                $bot->sendMsg( $parse['nick'], "Is authenticated!" );
+            else
+                $bot->sendMsg( $parse['nick'], "Identity: ".str_replace( "\n", "", str_replace( "\r", "", var_export( $userAuth, true ) ) ) );
+            break;
+        case 'whoami':
+            if( isset( $userAuth[ $parse['hostmask'] ] ) )
+                $bot->sendMsg( $parse['nick'], "Identity: ".str_replace( "\n", "", str_replace( "\r", "", var_export( $userAuth[ $parse['hostmask'] ], true ) ) ) );
+            break;
+        case 'caps':
+            $nick = $parse['nick'];
+            if( 0 < count( $parse['cmdargs'] ) )
+                $nick = $parse['cmdargs'][0];
+            $res = $mysqli->query( "SELECT * FROM `users` WHERE username='".$mysqli->real_escape_string( strtolower( $nick ) )."'" );
+            if( false === $res ){
+                $bot->sendMsg( $parse['nick'], "SQL Error: (".$mysqli->errno.")".$mysqli->error );
+                break;
+            }
+            if( 1 > $res->num_rows ){
+                $bot->sendMsg( $parse['nick'], "User does not exist." );
+                break;
+            }
+            while( null !== $row = $res->fetch_assoc() ){
+                $bot->sendMsg( $parse['nick'], implode( ' || ', userAuth_getCapsByID( $row['users_id'] ) ) );
+            }
+            break;
+        case 'hascap':
+            if( userAuth_hasCap( $parse['cmdargs'][0], $parse['cmdargs'][1] ) )
+                $bot->sendMsg( $parse['nick'], "Has capability!" );
+            else
+                $bot->sendMsg( $parse['nick'], "Does NOT have capability" );
+            break;
+        default:
+            break;
+    }
+}
+
+function userAuth_update( &$bot, $parse ){
+    global $userAuth, $mysqli;
+    if( isset( $userAuth[ $parse['hostmask'] ] ) ){
+        $user = &$userAuth[ $parse['hostmask'] ];
+        if( time() - 300 < $user['lastauth'] ){
+            $user['lastauth'] = time();
+        }else
+            unset( $userAuth[ $parse['hostmask'] ] );
+    }
+}
+
+function userAuth_identify( $hostmask, $password ){
+    global $mysqli, $userAuth;
+    $res = $mysqli->query( "SELECT * FROM `users` WHERE `username`='".$mysqli->real_escape_string( reset( explode( "!", strtolower( $hostmask ) ) ) )."' AND password='".userAuth_hashPass( $password )."'" );
+    if( 1 == $res->num_rows ){
+        $row = $res->fetch_assoc();
+        $row['hostmask'] = $hostmask;
+        $row['lastauth'] = time();
+        $userAuth[ $hostmask ] = $row;
+        // Update
+        $mysqli->query("UPDATE `users` SET hostmask='".$mysqli->real_escape_string( $hostmask )."', lastauth=now() WHERE users_id=".$row['users_id']);
+        return true;
+    }
+    unset( $userAuth[ $hostmask ] );
+    return false;
+}
+
+function userAuth_isAuthedUser( $hostmask ){
+    global $userAuth;
+    if( isset( $userAuth[ $hostmask ] ) && time() - 300 < $userAuth[ $hostmask ]['lastauth'] )
+        return true;
+    return false;
+}
+
+function userAuth_hasCap( $username, $capability ){
+    global $mysqli;
+    $res = $mysqli->query( "SELECT * FROM `users` INNER JOIN `user_meta` ON users.users_id = user_meta.user_meta_id WHERE `users`.`username`='".$mysqli->real_escape_string( $username )."' AND `user_meta`.`meta_key` = 'capability' AND `user_meta`.`meta_val` = '".$mysqli->real_escape_string( $capability )."'" );
+    if( 0 < $res->num_rows )
+        return true;
+    return false;
+}
+
+function userAuth_getCapsByID( $id ){
+    global $mysqli;
+    $res = $mysqli->query( "SELECT * FROM `user_meta` WHERE meta_key = 'capability' AND users_id=".(int) $id );
+    $caps = array();
+    while( null !== $row = $res->fetch_assoc() ){
+        $caps[] = $row['meta_val'];
+    }
+    return $caps;
+}
+
+function userAuth_hashPass( $pass ){
+    for( $i = 0; $i < 100; $i++ )
+        $pass = sha1( md5( $pass ) );
+    return $pass;
+}
