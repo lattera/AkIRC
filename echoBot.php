@@ -116,7 +116,7 @@ function onQuit( &$bot, $p ){ // I don't think this ever gets called...
 function syntax(){
     global $argc,$argv;
     echo "Usage: ".$argv[0]." configFile.php\n";
-    echo "Directory ./modules/ must exist to continue operation if $cfg['loadModules'] is defined.\n";
+    echo "Directory ./modules/ must exist to continue operation if \$cfg['loadModules'] is defined.\n";
 }
 function callFunction( $func, &$arg1 = null, &$arg2 = null ){
     if( function_exists( $func ) )

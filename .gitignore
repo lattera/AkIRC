@@ -11,6 +11,7 @@ phpBot.pid
 relevant.log
 relevant/
 error_log
+kill.code
 
 rhlookup.php
 urlEcho.php.disabled
