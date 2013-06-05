@@ -38,40 +38,44 @@ if( $persistVars !== false )
     extract( $persistVars );
 unset( $persistVars );
 
-/* Load modules */
-if( ! file_exists( "modules" ) )
-    die( syntax() );
+if( isset( $cfg['loadModules'] ) ){
 
-$handle = opendir( './modules/' );
-$files = array();
+	/* Load modules */
+	if( ! file_exists( "modules" ) )
+		die( syntax() );
+/*
+	$handle = opendir( './modules/' );
+	$files = array();
 
-while( false !== ( $file = readdir( $handle ) ) ){
-    if( in_array( strtolower( end( explode( '.', $file ) ) ), array( 'php', 'php4', 'php5' ) ) )
-        $files[] = $file;
-}
-closedir( $handle );
+	while( false !== ( $file = readdir( $handle ) ) ){
+		if( in_array( strtolower( end( explode( '.', $file ) ) ), array( 'php', 'php4', 'php5' ) ) )
+			$files[] = $file;
+	}
+	closedir( $handle );
+*/
+	$deps = array(); // Dependancy tracking...
+	$modules = array();
+	foreach( $cfg['loadModules'] as $base ){
+		if( file_exists( "./modules/$base.php" ) ){
+			$modules[] = $base;
+			include( "./modules/$base.php" );
+		}
+	}
 
-$deps = array(); // Dependancy tracking...
-$modules = array();
-foreach( $files as $file ){
-    $base = substr( $file, 0, strrpos( $file, '.' ) );
-    $modules[] = $base;
-    include( "./modules/$base.php" );
-}
+	// Format: $deps['moduleName'] = array('MySQL', 'auth'); etc...
+	global $bot, $modVars, $modules;
+	$loadedDeps = array();
+	loadDependancies( $deps, $loadedDeps );
 
-// Format: $deps['moduleName'] = array('MySQL', 'auth'); etc...
-global $bot, $modVars, $modules;
-$loadedDeps = array();
-loadDependancies( $deps, $loadedDeps );
-
-/* Call module constructors */
-foreach( $modules as $mod ){
-    if( ! in_array( $mod, $loadedDeps ) ){
-        echo "[loadModules] Loading $mod\n";
-        if( true !== callFunction( $mod.'_construct', $bot, $modVars[$mod] ) )
-            echo "[LoadModules] !!! Initializing module failed for: $mod\n";
-    }
-}
+	/* Call module constructors */
+	foreach( $modules as $mod ){
+		if( ! in_array( $mod, $loadedDeps ) ){
+			echo "[loadModules] Loading $mod\n";
+			if( true !== callFunction( $mod.'_construct', $bot, $modVars[$mod] ) )
+				echo "[LoadModules] !!! Initializing module failed for: $mod\n";
+		}
+	}
+} // End loadModules
 
 // when bot connects to server
 $bot->addHandler( 'onConnect', 'onConnect' );
@@ -112,7 +116,7 @@ function onQuit( &$bot, $p ){ // I don't think this ever gets called...
 function syntax(){
     global $argc,$argv;
     echo "Usage: ".$argv[0]." configFile.php\n";
-    echo "Directory ./modules/ must exist to continue operation.\n";
+    echo "Directory ./modules/ must exist to continue operation if $cfg['loadModules'] is defined.\n";
 }
 function callFunction( $func, &$arg1 = null, &$arg2 = null ){
     if( function_exists( $func ) )
