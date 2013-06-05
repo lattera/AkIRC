@@ -1,6 +1,6 @@
 <?php
 
-$php_exe = "php"; // php executable/binary name (may be full path?)
+$php_exe = "php-cli"; // php executable/binary name (may be full path?) typically "php" or "php-cli"
 $bot_file = "echoBot.php"; // Bot main executable
 $bot_conf = "config.php"; // Bot configuration file
 
@@ -14,5 +14,6 @@ if( file_exists( 'phpBot.pid' ) && file_exists( '/proc/'.file_get_contents( 'php
 }
 
 // run PHP from CLI calling the bot...
-exec( "$php_exe $bot_file $bot_conf >>echoBot.out 2>>relevant.log &" );
-die( "Restarted bot...\n" );
+$command = "$php_exe $bot_file $bot_conf >>echoBot.out 2>>relevant.log &";
+exec( $command );
+die( "Restarted bot...'$command'\n" );

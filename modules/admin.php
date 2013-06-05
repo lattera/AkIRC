@@ -10,7 +10,7 @@ function admin_construct( &$bot, &$vars ){
 }
 
 function admin_privmsg( &$bot, &$parse ){
-    global $cfg;
+    global $cfg, $modVars;
     if( $parse['inChan'] )
         return;
     if( isset( $cfg['admin']['killcode'] ) && $cfg['admin']['killcode'] == $parse['cmd'] ){
@@ -28,6 +28,9 @@ function admin_privmsg( &$bot, &$parse ){
         echo "[admin] Reload code received, reloading config file\n";
         include( $cfg['cfg_file'] );
     }
-
+    if( isset( $cfg['admin']['showmodvars'] ) && $cfg['admin']['showmodvars'] == $parse['cmd'] ){
+        echo "[admin] Displaying \$modVars\n";
+        $bot->sendMsgHeaded( $parse['nick'], "admin", str_replace( "\r", "", str_replace( "\n", "", var_export( $modVars, true ) ) ) );
+    }
 }
 

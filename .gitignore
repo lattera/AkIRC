@@ -4,6 +4,7 @@
 
 config.php
 echoUsers.txt
+echoBot.out
 irc.log
 nickserv.creds
 persist.dat
@@ -13,20 +14,12 @@ relevant/
 error_log
 kill.code
 
-rhlookup.php
-urlEcho.php.disabled
-votekicktemp.php
-voting.php
+# A place to put modules that should *not* be shared
+modules/custom/*
 
 # This needs worked on!!!
 updater.php
 tempBanTor.php
-h3cRSS.php
-
-# maybe make an entire "admin" module including all of these basic commands?
-reloadConfig.php
-killitneow.php
-showModVars.php
 
 #################
 ## Eclipse
