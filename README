@@ -1,0 +1,210 @@
+[ Table of Contents ]
+    General Overview
+    Contact
+    API
+    Hooks
+    Parse Array
+    Creating Modules
+    Help Module/Format
+
+[ Contact ]
+    Written by Jason E Rush ( jason@jason-rush.com )
+    http://projects.jason-rush.com/PHP_IRC_Bot
+    
+[ General Overview ]
+
+	ADD INFO HERE ON THE CRON JOBS FOR PERSISTANCE AND RELEVANT EMAIL
+	THESE MAY NEED TO BE 'php-cli' AND THE persist.php WILL NEED UPDATED TO MATCH THE CRON JOB
+		# m h  dom mon dow   command
+		* * * * * cd /home/path/to/bot/ && php persist.php
+		0 0 * * * cd /home/path/to/bot/ && php emailRelevant.php
+
+
+	Syntax for running bot directly: php echoBot.php config.php
+
+[ API ]
+    Functions accessed via $bot->someApiFunction( $arg1 [,$argN ] );
+    
+    loop()
+        Main process loop, this is typically called in a fashion similar to: while( true ){ $bot->loop(); }
+    
+    addNick( nick )
+        adds 'nick' as a possible nickname for the bot to connect with.
+        Upon connecting to a server, bot tries each nick in order, falling back to 'AkIRC'
+    delNick( nick )
+        removes 'nick' from list of possible nicks to try
+    getNick()
+        gets bots current nick
+    setRealname( name )
+        sets bots 'real name' (shown in /whois, etc)
+    setUsername( name )
+        sets bots 'username' ( nick!username@hostmask )
+    
+    addSigHandler( signal, functionName )
+        Add signal handler (sighup, etc...)
+    delSigHandler( signal, functionName )
+        Delete signal handler (sighup, etc...)
+    
+    addHandler( event, functionName )
+        Adds handler 'functionName' for hook 'event'
+    delHandler( event, functionName )
+        Removes handler 'functionName' for hook 'event'
+
+    addServer( label, host [, pass ] )
+        adds server to list of hosts to connect to...
+        iirc, can do alt ports as irc.blah.tld:7000
+        or ssl://irc.blah.tld:6669
+    editServer( label [, host [, pass ] ] )
+        Edit server host or password, set args to null to leave as-is
+    delServer( label )
+        removes server from list
+    
+    sendMsg( target, message )
+        sends 'message' to 'target' as PRIVMSG
+    sendMsgTabbed( target, message )
+        sends 'message' to 'target' with indention
+    sendMsgHeaded( target, heading, message )
+        sends 'message' to 'target' with heading 'heading'
+        ie "[heading] message"
+    sendNotice( target, message )
+        sends 'message' to 'target' as NOTICE
+    sendAction( target, message )
+        sends 'message' to 'target' as an action (ie /me does something)
+    sendCTCP( target, message )
+        sends CTCP request of 'message' to 'target'
+    sendCTCPReply
+        sends CTCP reply of 'message' to 'target'
+    oper( user, pass )
+        become an IRCOp, using username 'user', and password 'pass'
+    kill( nick [, message ] )
+        /kill's 'nick' with optional message
+    kline( nick [, message ] )
+        /kline's 'nick' with optional message
+    ghost( nick, pass )
+        ghost's 'nick' via nickserv
+    ban( channel, mask )
+        /mode channel +b mask
+        ie ban( '#chat', 'jdoe!name@hostmask' );
+    kickban( channel, nick, mask [, message ] )
+        bans 'mask' from 'channel', then kicks 'nick' from 'channel' with optional 'message'
+    kick( channel, nick [, message ] )
+        kicks 'nick' from 'channel' with optional 'message'
+    mode( target, mode [, args ] )
+        Changing modes, example:
+            mode( "jsmith", "+B" ); // mark user as a Bot
+            mode( "#channel", "+o", "jsmith" ); // Make jsmith an oper in #channel, though there are more efficient ways
+    nick( newNick )
+        change nick to newNick
+    join( channel [, password ] )
+        Join 'channel' with optional 'password' if channel is +k
+    part( channel )
+        part 'channel'
+    quit( [ message ] )                         // IS NOT CURRENTLY UTILIZING OPTIONAL MESSAGE PROPERLY
+        quit with optional 'message'
+    debugOn()
+    debugOff()
+        Toggles debugging, ie whether or not to display/echo/print anything to the terminal the bot was run on
+    sendCmd( line )
+        sends raw 'line' to IRC server
+
+[ Hooks ]
+    All hooks send the "parsed" array as their second argument, unless explicitely specified in parenthesis
+
+    loop ( nothing, called before receive line )
+        every single itteration, this is where any asyncronous functions should hook in
+    .
+        every time a message is received
+    .. ( entire sent message/line )
+        every time a message is sent
+    onConnect
+        upon connecting to server
+    ctcp
+        Upon receiving a CTCP message
+    ctcp.privmsg.{action}
+        Upon receiving a CTCP PRIVMSG beginning with {action}, ie "ctcp.privmsg.version" for CTCP version requests
+    ctcp.notice.{action}
+        Upon receiving a CTCP NOTICE beginning with {action}, ie "ctcp.notice.version" for CTCP version replies
+    ctcp.other.{action}
+        Upon receiving an unknown CTCP beginning with {action}, ie "ctcp.other.version", will this ever be called?
+    privmsg
+        Upon receiving any PRIVMSG's
+    privmsg.
+        Upon receiving a PRIVMSG from itself
+    privmsg.{source}
+        Upon receiving a PRIVMSG from {source}, ie "privmsg.jsmith" for PMs from jsmith
+    notice
+        Upon receiving any NOTICE's
+    notice.
+        Upon receiving a NOTICE from itself
+    notice.{source}
+        Upon receiving a NOTICE from {source}, ie "notice.jsmith" for PMs from jsmith
+    join
+        Upon joining a channel
+    join.{source}
+        Upon joining the specified channel
+    nick
+        Upon Anyone changing their nick
+    nick.
+        Upon the bot changing its nick
+    mode
+        Upon any mode changes
+    mode.{source}
+        Upon any mode changes from {source}
+    act
+        Any actions that the parse function does not currently recognise
+    ping
+        When receiving a PING from the server (hook is called after PONG is sent)
+
+[ Parse Array ]
+    Explanation of the parse array passed to hook handlers
+    
+    $p = array(
+        'inPM'      => boolean
+        'inChan'    => boolean
+
+        'isCTCP'    => boolean
+
+        'act'       => {privmsg, notice, etc}
+
+        'nick'      => string ( nick!user@host )
+        'user'      => string ( nick!user@host )
+        'host'      => string ( nick!user@host )
+        
+        'chan'      => string ( '#chat', '&test', etc )
+
+        'src'       => string ( '#chat', 'jsmith', etc )
+
+        // Commands such as ".doStuff arg1 arg2 arg3 arg4"
+        'cmd'       => string ( '.doStuff' )
+        'cmdargs'   => array of strings, ie { 'arg1', 'arg2', 'arg3', 'arg4' )
+        'cmdtxt'    => string ( 'arg1 arg2 arg3 arg4' )
+    );
+
+[ Creating Modules ]
+    Create a php file in modules/, the name of the .php file will be used in the module code, so pick something unique yet descriptive
+        ex. echo.php
+    In the file:
+        <?php
+        function <FILENAME>_construct( &$bot, &$vars ){
+    ex. function echo_construct( &$bot, &$vars ){
+    
+    Inside of the XXX_construct() function, you will typically begin adding hook callbacks, such as: $bot->addHandler( 'privmsg', 'inUr_privmsg' );
+    These hooks will call the callback functions (2nd arg) whenever the event is triggered. Refer to [ Hooks ] for a detailed list.
+
+[ Help Module/Format ]
+    if( ! isset( $help ) ) $help = array();
+    $help[] = ".reminder\tBasic description of the command";
+    $help['.reminder'] = array(
+        "This text is displayed for general overview.",
+        "This is also displayed for general overview...",
+        "add" => array(
+            "This is help for '.reminder add'",
+            "So is this...",
+        ),
+        "del" => array(
+            "Delete help!",
+            "another-one" => array(
+                "even more description text for the another-one argument...",
+            ),
+        ),
+    );

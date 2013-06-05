@@ -1,0 +1,16 @@
+Add security to urlEcho.php
+Add security to linkTitles.php
+Add ability to blacklist hosts/domains for linkTitles.php and urlEcho.php?
+Set title grabber to have a shorter timeout period, say 1-2 seconds?
+
+Many modules need re-worked
+
+Convert config system and persistance system to use exported JSON files
+
+.h[elp]
+
+.r[eminder]
+
+.g[oogle]
+
+.w[iki[pedia]]
