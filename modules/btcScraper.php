@@ -211,11 +211,11 @@ function ltcMode(&$bot, $parse) {
                     $ltcCache[$field] = $dec['ticker'][strtolower($field)];
                 }
             } else {
-                $bot->sendMsgHeaded($dest, '[LTC]', 'Unable to parse API results');
+                $bot->sendMsgHeaded($dest, 'LTC', 'Unable to parse API results');
                 return false;
             }
         } else if (!isset($ltcCache['updated'])) {
-            $bot->sendMsgHeaded($dest, '[LTC]', 'Unable to reach BTC-e');
+            $bot->sendMsgHeaded($dest, 'LTC', 'Unable to reach BTC-e');
             return false;
         }
     }
@@ -231,7 +231,7 @@ function ltcMode(&$bot, $parse) {
 
     $msg .= ($ltcCache['updated'] == 0 || $diff == 0 ? '' : ' ' . $diff . 'second' . ($diff > 1 ? '' : 's') . 'ago');
 
-    $bot->sendMsgHeaded($dest, '[LTC]', $msg);
+    $bot->sendMsgHeaded($dest, 'LTC', $msg);
 
     return true;
 }
