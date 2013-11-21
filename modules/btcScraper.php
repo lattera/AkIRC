@@ -17,19 +17,28 @@ function btcScraper_construct( &$bot, &$vars ){
         "Displays current Bitcoin rates from Mt. Gox ( https://mtgox.com )",
         'ex. [BTC] Last: $xx.xx High: $xx.xx Low: $xx.xx Avg: $xx.xx'
     );
+    $help['.ltc'] = array(
+        '.ltc',
+        'Displays current Litcoin rates from btc-e ( https://btc-e.com/ )',
+        'ex. [LTC] Last: $xx.xx High: $xx.xx Low: $xx.xx Avg: $xx.xx',
+    );
     return true;
 }
 
 function btcScraper_privmsg( &$bot, $parse ){
     global $cfg, $btcScraperCache, $btcScraperLastPublic;
-
+    $my_commands = array('.btc', '.ltc');
+    
     $timeout = 300;
     $displayPubliclyTimeout = 30;
 
     if( $parse['inPM'] )
         return;
-    if( ".btc" != $parse['cmd'] )
+    if( ! in_array($parse['cmd'], $my_commands) )
         return;
+
+    if ( $parse['cmd'] == '.ltc' )
+        return ltcMode($bot, $parse);
 
     if( ! isset( $btcScraperLastPublic ) ) $btcScraperLastPublic = 0;
     if( ! isset( $btcScraperCache ) ) $btcScraperCache = array();
@@ -159,4 +168,70 @@ function btcScraper_mtgox_query($path, array $req = array()) {
         return false;
     }
     return $dec;
+}
+
+function ltcMode(&$bot, $parse) {
+    global $cfg, $ltcCache, $ltcLastPublic;
+    static $ch = null;
+
+    $fields = array(
+        'Last' => true,
+        'High' => true,
+        'Low' => true,
+        'Avg' => true,
+        'updated' => false,
+    );
+
+    $timeout = 300;
+    $displayPubliclyTimeout = 30;
+
+    if ( ! isset( $ltcLastPublic ) )
+        $ltcLastPublic = 0;
+    if ( ! isset( $ltcCache ) )
+        $ltcCache = array();
+    if ( ! isset( $ltcCache['timestamp'] ) )
+        $ltcCache['timestamp'] = 0;
+
+    $dest = ( time() > $ltcLastPublic + $displayPubliclyTimeout ? $parse['src'] : $parse['nick'] );
+
+    if ( time() > $ltcCache['timestamp'] + $timeout ) {
+        if (is_null($ch)) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_URL, 'https://btc-e.com/api/2/ltc_usd/ticker');
+            curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+        }
+
+        $res = curl_exec($ch);
+        if ($res !== FALSE) {
+            $dec = json_decode($res, true);
+            if (!is_null($dec) && $dec != FALSE) {
+                foreach ($fields as $field => $display) {
+                    $ltcCache[$field] = $dec['ticker'][strtolower($field)];
+                }
+            } else {
+                $bot->sendMsgHeaded($dest, '[LTC]', 'Unable to parse API results');
+                return false;
+            }
+        } else if (!isset($ltcCache['updated'])) {
+            $bot->sendMsgHeaded($dest, '[LTC]', 'Unable to reach BTC-e');
+            return false;
+        }
+    }
+
+
+    $diff = time() - $ltcCache['updated'];
+
+    $msg = '';
+    foreach ($fields as $field => $display) {
+        if ($display)
+            $msg .= ' ' . $field . ': $' . $ltcCache[$field];
+    }
+
+    $msg .= ($ltcCache['updated'] == 0 || $diff == 0 ? '' : ' ' . $diff . 'second' . ($diff > 1 ? '' : 's') . 'ago');
+
+    $bot->sendMsgHeaded($dest, '[LTC]', $msg);
+
+    return true;
 }
