@@ -225,7 +225,7 @@ function ltcMode(&$bot, $parse) {
     $msg = '';
     foreach ($fields as $field => $display) {
         if ($display)
-            $msg .= ($msg == '' ? '' : ' ') . '\x02' . $field . '\x0f: $' . $ltcCache[$field];
+            $msg .= ($msg == '' ? '' : ' ') . "\x02" . $field . "\x0f" . ': $' . $ltcCache[$field];
     }
 
     $msg .= ($ltcCache['updated'] == 0 || $diff == 0 ? '' : ' ' . $diff . ' second' . ($diff > 1 ? '' : 's') . ' ago');
