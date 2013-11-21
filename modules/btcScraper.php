@@ -22,7 +22,7 @@ function btcScraper_construct( &$bot, &$vars ){
 
 function btcScraper_privmsg( &$bot, $parse ){
     global $cfg, $btcScraperCache, $btcScraperLastPublic;
-    
+
     $timeout = 300;
     $displayPubliclyTimeout = 30;
 
@@ -45,6 +45,7 @@ function btcScraper_privmsg( &$bot, $parse ){
     }
 
     $dest = ( time() > $btcScraperLastPublic + $displayPubliclyTimeout ? $parse['src'] : $parse['nick'] );
+    $diff = time() - $btcScraperCache['timestamp'];
 
     if( isset( $res ) && false !== $res ){
         $btcScraperCache['last'] = $res['return']['last']['display_short'];
@@ -52,14 +53,6 @@ function btcScraper_privmsg( &$bot, $parse ){
         $btcScraperCache['low'] = $res['return']['low']['display_short'];
         $btcScraperCache['avg'] = $res['return']['avg']['display_short'];
         if( isset( $parse['cmdargs'][0] ) && "ALLTHETHINGS" == $parse['cmdargs'][0] ){
-            $diff = time() - $btcScraperCache['timestamp'];
-
-            if( 0 == $diff && false === $res ){
-                $bot->sendMsgHeaded( $dest, "BTC",
-                    "Currently unable to reach Mt. Gox."
-                );
-                return;
-            }
             $msg = "";
             foreach( $res['return'] as $k => $v )
                 $msg .= "\x02$k:\x0f {$v['display_short']} ";
@@ -74,8 +67,28 @@ function btcScraper_privmsg( &$bot, $parse ){
             return;
         }
     }
-
-    $diff = time() - $btcScraperCache['timestamp'];
+    if( isset( $parse['cmdargs'][0] ) && "ALLTHETHINGS" != $parse['cmdargs'][0] && is_numeric( $parse['cmdargs'][0] ) ){
+    if( floatval( $parse['cmdargs'][0] ) > 0 && floatval( $parse['cmdargs'][0] ) < 10000000 ){
+	$num_btc = floatval( $parse['cmdargs'][0] );
+    	$btcScraperLastPublic = time();
+	$bot->sendMsgHeaded( $dest, "BTC",
+	    "\x02Last:\x0f {$btcScraperCache['last']} ".
+	    "\x02High:\x0f {$btcScraperCache['high']} ".
+	    "\x02Low:\x0f {$btcScraperCache['low']} ".
+	    "\x02Avg:\x0f {$btcScraperCache['avg']} ".
+	    (   0 == $btcScraperCache['timestamp'] || 0 == $diff
+	        ? ''
+	        : " $diff second".($diff > 1 ? 's' : '' )." ago "
+	    ).
+	    "[VALUE OF] $num_btc BTC: ".
+	    "\x02Last:\x0f \$".round($num_btc * floatval( substr( $btcScraperCache['last'], 1 ) ), 2 )." ".
+            "\x02High:\x0f \$".round($num_btc * floatval( substr( $btcScraperCache['high'], 1 ) ), 2 )." ".
+            "\x02Low:\x0f \$".round($num_btc * floatval( substr( $btcScraperCache['low'], 1 ) ), 2 )." ".
+            "\x02Avg:\x0f \$".round($num_btc * floatval( substr( $btcScraperCache['avg'], 1 ) ), 2 )." "
+	);
+	return;
+    }
+    }
 
     if( isset( $res ) && false === $res )
         $bot->sendMsgHeaded( $dest, "BTC",
@@ -101,7 +114,7 @@ function btcScraper_privmsg( &$bot, $parse ){
 function btcScraper_mtgox_query($path, array $req = array()) {
 	global $cfg;
     // API settings
-	export( $cfg['btcScraper'] );
+    extract( $cfg['btcScraper'] );
  
     // generate a nonce as microtime, with as-string handling to avoid problems with 32bits systems
     $mt = explode(' ', microtime());
