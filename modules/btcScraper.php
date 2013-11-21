@@ -189,12 +189,12 @@ function ltcMode(&$bot, $parse) {
         $ltcLastPublic = 0;
     if ( ! isset( $ltcCache ) )
         $ltcCache = array();
-    if ( ! isset( $ltcCache['timestamp'] ) )
-        $ltcCache['timestamp'] = 0;
+    if ( ! isset( $ltcCache['updated'] ) )
+        $ltcCache['updated'] = 0;
 
     $dest = ( time() > $ltcLastPublic + $displayPubliclyTimeout ? $parse['src'] : $parse['nick'] );
 
-    if ( time() > $ltcCache['timestamp'] + $timeout ) {
+    if ( time() > $ltcCache['updated'] + $timeout ) {
         if (is_null($ch)) {
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -214,19 +214,18 @@ function ltcMode(&$bot, $parse) {
                 $bot->sendMsgHeaded($dest, 'LTC', 'Unable to parse API results');
                 return false;
             }
-        } else if (!isset($ltcCache['updated'])) {
+        } else if (!isset($ltcCache['Last'])) {
             $bot->sendMsgHeaded($dest, 'LTC', 'Unable to reach BTC-e');
             return false;
         }
     }
-
 
     $diff = time() - $ltcCache['updated'];
 
     $msg = '';
     foreach ($fields as $field => $display) {
         if ($display)
-            $msg .= ' ' . $field . ': $' . $ltcCache[$field];
+            $msg .= ($msg == '' ? '' : ' ') . '\x02' . $field . '\x0f: $' . $ltcCache[$field];
     }
 
     $msg .= ($ltcCache['updated'] == 0 || $diff == 0 ? '' : ' ' . $diff . ' second' . ($diff > 1 ? '' : 's') . ' ago');
