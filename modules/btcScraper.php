@@ -229,7 +229,7 @@ function ltcMode(&$bot, $parse) {
             $msg .= ' ' . $field . ': $' . $ltcCache[$field];
     }
 
-    $msg .= ($ltcCache['updated'] == 0 || $diff == 0 ? '' : ' ' . $diff . 'second' . ($diff > 1 ? '' : 's') . 'ago');
+    $msg .= ($ltcCache['updated'] == 0 || $diff == 0 ? '' : ' ' . $diff . ' second' . ($diff > 1 ? '' : 's') . ' ago');
 
     $bot->sendMsgHeaded($dest, 'LTC', $msg);
 
