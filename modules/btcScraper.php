@@ -220,6 +220,11 @@ function ltcMode(&$bot, $parse) {
         }
     }
 
+    if (isset($parse['src']) && isset($parse['nick']))
+        if ($parse['src'] != $parse['nick'])
+            if ($dest == $parse['src'])
+                $ltcLastPublic = time();
+
     $diff = time() - $ltcCache['updated'];
 
     $msg = '';
